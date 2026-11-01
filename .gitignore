@@ -1,0 +1,16 @@
+# Gizli dosyalar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Bağımlılıklar ve build çıktıları
+node_modules/
+dist/
+coverage/
+
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
+*.log
