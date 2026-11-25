@@ -30,6 +30,8 @@ export interface OAuthAdapterConfig {
   clientSecret: string;
   baseUrl: string;
   tokenUrl: string;
+  redirectUri?: string;
+  scope?: string;
   timeoutMs: number;
   failureThreshold: number;
   resetTimeoutMs: number;
@@ -559,6 +561,26 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
   }
 
   private async fetchAccessToken(correlationId?: string): Promise<string> {
+    const tokenParams = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: this.config.clientId,
+      client_secret: this.config.clientSecret,
+    });
+
+    if (
+      this.config.redirectUri !== undefined &&
+      this.config.redirectUri.trim().length > 0
+    ) {
+      tokenParams.set('redirect_uri', this.config.redirectUri.trim());
+    }
+
+    if (
+      this.config.scope !== undefined &&
+      this.config.scope.trim().length > 0
+    ) {
+      tokenParams.set('scope', this.config.scope.trim());
+    }
+
     let response: Response;
     try {
       response = await withTimeout(
@@ -569,11 +591,7 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
               Accept: 'application/json',
               'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: new URLSearchParams({
-              grant_type: 'client_credentials',
-              client_id: this.config.clientId,
-              client_secret: this.config.clientSecret,
-            }),
+            body: tokenParams,
           }),
         this.config.timeoutMs,
         this.providerId,
@@ -618,9 +636,10 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
       throw new BankAdapterError(this.providerId, correlationId);
     }
 
+    const safetyMarginMs = Math.min(30_000, Math.floor(expiresIn * 100));
     this.#cachedToken = {
       value: accessToken,
-      expiresAt: Date.now() + expiresIn * 1000,
+      expiresAt: Date.now() + expiresIn * 1000 - safetyMarginMs,
     };
     return accessToken;
   }
