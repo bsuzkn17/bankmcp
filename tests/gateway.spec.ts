@@ -443,6 +443,7 @@ const CONFIG_ENV_KEYS = [
   'BANK_GARANTI_CLIENT_SECRET_FILE',
   'BANK_GARANTI_BASE_URL',
   'BANK_GARANTI_TOKEN_URL',
+  'BANK_GARANTI_REDIRECT_URI',
 ] as const;
 
 describe('secret file configuration', () => {
@@ -484,6 +485,7 @@ describe('secret file configuration', () => {
     process.env.BANK_GARANTI_TOKEN_URL =
       'https://apis.garantibbva.com.tr/oauth2/token';
     delete process.env.BANK_GARANTI_CLIENT_SECRET_FILE;
+    delete process.env.BANK_GARANTI_REDIRECT_URI;
   }
 
   it('loads BANK_GARANTI_CLIENT_SECRET from BANK_GARANTI_CLIENT_SECRET_FILE', () => {

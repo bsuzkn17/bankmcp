@@ -8,6 +8,18 @@ const positiveInteger = z
   .regex(/^[1-9]\d*$/)
   .transform(Number);
 
+const GARANTI_TOKEN_URL =
+  'https://apis.garantibbva.com.tr/auth/oauth/v2/token';
+
+const optionalUrl = z.preprocess((value: unknown) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}, z.string().url().optional());
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']),
@@ -22,7 +34,8 @@ const envSchema = z
     BANK_GARANTI_CLIENT_ID: z.string().default(''),
     BANK_GARANTI_CLIENT_SECRET: z.string().default(''),
     BANK_GARANTI_BASE_URL: z.string().url(),
-    BANK_GARANTI_TOKEN_URL: z.string().url(),
+    BANK_GARANTI_TOKEN_URL: z.string().url().default(GARANTI_TOKEN_URL),
+    BANK_GARANTI_REDIRECT_URI: optionalUrl,
   })
   .strict();
 
@@ -79,6 +92,7 @@ export function loadEnvConfig(): EnvConfig {
     BANK_GARANTI_CLIENT_SECRET: env.BANK_GARANTI_CLIENT_SECRET,
     BANK_GARANTI_BASE_URL: env.BANK_GARANTI_BASE_URL,
     BANK_GARANTI_TOKEN_URL: env.BANK_GARANTI_TOKEN_URL,
+    BANK_GARANTI_REDIRECT_URI: env.BANK_GARANTI_REDIRECT_URI,
   });
 
   if (!result.success) {

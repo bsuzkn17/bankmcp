@@ -14,6 +14,7 @@ async function startServer(): Promise<void> {
   try {
     const config = loadEnvConfig();
     logger = new Logger(config.LOG_LEVEL);
+    const redirectUri = config.BANK_GARANTI_REDIRECT_URI;
 
     registerGarantiAdapter(
       {
@@ -21,6 +22,7 @@ async function startServer(): Promise<void> {
         clientSecret: config.BANK_GARANTI_CLIENT_SECRET,
         baseUrl: config.BANK_GARANTI_BASE_URL,
         tokenUrl: config.BANK_GARANTI_TOKEN_URL,
+        ...(redirectUri === undefined ? {} : { redirectUri }),
         timeoutMs: config.API_REQUEST_TIMEOUT_MS,
         failureThreshold: config.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
         resetTimeoutMs: config.CIRCUIT_BREAKER_RESET_TIMEOUT_MS,
