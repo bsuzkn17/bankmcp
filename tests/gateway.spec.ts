@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadEnvConfig } from '../src/config/env.schema.js';
+import { parseEnv } from '../src/config/env.schema.js';
 import {
   BankAdapterError,
   CircuitOpenError,
@@ -500,7 +500,7 @@ describe('secret file configuration', () => {
     process.env.BANK_GARANTI_CLIENT_SECRET = '';
     process.env.BANK_GARANTI_CLIENT_SECRET_FILE = secretFilePath;
 
-    const config = loadEnvConfig();
+    const config = parseEnv(process.env);
     expect(config.BANK_GARANTI_CLIENT_SECRET).toBe('file-sourced-secret');
   });
 
@@ -516,7 +516,7 @@ describe('secret file configuration', () => {
     process.env.BANK_GARANTI_CLIENT_SECRET = 'inline-secret';
     process.env.BANK_GARANTI_CLIENT_SECRET_FILE = secretFilePath;
 
-    const config = loadEnvConfig();
+    const config = parseEnv(process.env);
     expect(config.BANK_GARANTI_CLIENT_SECRET).toBe('inline-secret');
   });
 
@@ -529,9 +529,9 @@ describe('secret file configuration', () => {
       'turkish-bank-mcp-missing-secret',
     );
 
-    expect(() => loadEnvConfig()).toThrow(ConfigurationError);
+    expect(() => parseEnv(process.env)).toThrow(ConfigurationError);
     try {
-      loadEnvConfig();
+      parseEnv(process.env);
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(ConfigurationError);
       if (error instanceof ConfigurationError) {
