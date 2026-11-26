@@ -23,6 +23,9 @@ async function startServer(): Promise<void> {
         baseUrl: config.BANK_GARANTI_BASE_URL,
         tokenUrl: config.BANK_GARANTI_TOKEN_URL,
         ...(redirectUri === undefined ? {} : { redirectUri }),
+        ...(config.BANK_GARANTI_SCOPE.trim().length === 0
+          ? {}
+          : { scope: config.BANK_GARANTI_SCOPE }),
         timeoutMs: config.API_REQUEST_TIMEOUT_MS,
         failureThreshold: config.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
         resetTimeoutMs: config.CIRCUIT_BREAKER_RESET_TIMEOUT_MS,

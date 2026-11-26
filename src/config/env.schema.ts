@@ -20,6 +20,17 @@ const optionalUrl = z.preprocess((value: unknown) => {
   return trimmed.length === 0 ? undefined : trimmed;
 }, z.string().url().optional());
 
+const httpsUrl = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      return new URL(value).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  });
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']),
@@ -33,9 +44,10 @@ const envSchema = z
       .transform((value) => value === 'true'),
     BANK_GARANTI_CLIENT_ID: z.string().default(''),
     BANK_GARANTI_CLIENT_SECRET: z.string().default(''),
-    BANK_GARANTI_BASE_URL: z.string().url(),
-    BANK_GARANTI_TOKEN_URL: z.string().url().default(GARANTI_TOKEN_URL),
+    BANK_GARANTI_BASE_URL: httpsUrl,
+    BANK_GARANTI_TOKEN_URL: httpsUrl.default(GARANTI_TOKEN_URL),
     BANK_GARANTI_REDIRECT_URI: optionalUrl,
+    BANK_GARANTI_SCOPE: z.string().default(''),
   })
   .strict();
 
@@ -99,6 +111,7 @@ export function parseEnv(env: NodeJS.ProcessEnv): EnvConfig {
     BANK_GARANTI_BASE_URL: resolvedEnv.BANK_GARANTI_BASE_URL,
     BANK_GARANTI_TOKEN_URL: resolvedEnv.BANK_GARANTI_TOKEN_URL,
     BANK_GARANTI_REDIRECT_URI: resolvedEnv.BANK_GARANTI_REDIRECT_URI,
+    BANK_GARANTI_SCOPE: resolvedEnv.BANK_GARANTI_SCOPE,
   });
 
   if (!result.success) {
@@ -108,6 +121,17 @@ export function parseEnv(env: NodeJS.ProcessEnv): EnvConfig {
       `Invalid environment variable: ${
         typeof invalidKey === 'string' ? invalidKey : 'configuration'
       }.`,
+    );
+  }
+
+  if (
+    !result.data.ENABLE_MOCK_BANKS &&
+    (result.data.BANK_GARANTI_CLIENT_ID.trim().length === 0 ||
+      result.data.BANK_GARANTI_CLIENT_SECRET.trim().length === 0)
+  ) {
+    throw new ConfigurationError(
+      undefined,
+      'BANK_GARANTI_CLIENT_ID and BANK_GARANTI_CLIENT_SECRET are required when mock mode is disabled.',
     );
   }
 

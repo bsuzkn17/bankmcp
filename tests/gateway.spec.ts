@@ -38,7 +38,7 @@ const adapterConfig: OAuthAdapterConfig = {
   clientId: '',
   clientSecret: '',
   baseUrl: 'https://apis.garantibbva.com.tr',
-  tokenUrl: 'https://apis.garantibbva.com.tr/oauth2/token',
+  tokenUrl: 'https://apis.garantibbva.com.tr/auth/oauth/v2/token',
   timeoutMs: 1000,
   failureThreshold: 2,
   resetTimeoutMs: 100,
@@ -136,6 +136,18 @@ describe('sanitizer and PII masking', () => {
       access_token: '[REDACTED]',
       client_secret: '[REDACTED]',
       identityNumber: '*********12',
+    });
+  });
+
+  it('serializes valid dates as ISO strings and invalid dates as null', () => {
+    expect(
+      sanitizeData({
+        valid: new Date('2025-01-15T10:30:00.000Z'),
+        invalid: new Date(Number.NaN),
+      }),
+    ).toEqual({
+      valid: '2025-01-15T10:30:00.000Z',
+      invalid: null,
     });
   });
 });
@@ -338,6 +350,10 @@ describe('MCP tools with mock Garanti adapter', () => {
       expect(account.iban).toMatch(/^TR\d{2}\*+\d{4}$/);
       expect(account.maskedIban).toBe(account.iban);
       expect(account.iban).not.toMatch(/^TR\d{22,}$/);
+      expect(account.updatedAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+      );
+      expect(account.updatedAt).not.toEqual({});
     }
 
     const balanceResult = await handlers.banking_get_account_balance({
@@ -362,6 +378,12 @@ describe('MCP tools with mock Garanti adapter', () => {
     };
     expect(transactionsResult.isError).toBeUndefined();
     expect(transactionsPayload.data).toHaveLength(2);
+    for (const transaction of transactionsPayload.data) {
+      expect(transaction.transactionDate).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+      );
+      expect(transaction.transactionDate).not.toEqual({});
+    }
     expect(
       JSON.stringify(transactionsPayload),
     ).not.toMatch(/access_token|client_secret|TR\d{22,}/);
@@ -483,7 +505,7 @@ describe('secret file configuration', () => {
     process.env.BANK_GARANTI_CLIENT_SECRET = '';
     process.env.BANK_GARANTI_BASE_URL = 'https://apis.garantibbva.com.tr';
     process.env.BANK_GARANTI_TOKEN_URL =
-      'https://apis.garantibbva.com.tr/oauth2/token';
+      'https://apis.garantibbva.com.tr/auth/oauth/v2/token';
     delete process.env.BANK_GARANTI_CLIENT_SECRET_FILE;
     delete process.env.BANK_GARANTI_REDIRECT_URI;
   }
