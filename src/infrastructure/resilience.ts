@@ -20,6 +20,18 @@ export function withTimeout<T>(
   timeoutMs: number,
   providerId: string,
   correlationId?: string,
+): Promise<T>;
+export function withTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  providerId: string,
+  correlationId?: string,
+): Promise<T>;
+export function withTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  providerId: string,
+  correlationId?: string,
 ): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
     return Promise.reject(
@@ -28,16 +40,21 @@ export function withTimeout<T>(
   }
 
   let timer: ReturnType<typeof setTimeout>;
+  const controller = new AbortController();
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new BankAdapterError(providerId, correlationId)),
+      () => {
+        controller.abort();
+        reject(new BankAdapterError(providerId, correlationId));
+      },
       timeoutMs,
     );
   });
 
-  return Promise.race([Promise.resolve().then(operation), timeout]).finally(
-    () => clearTimeout(timer),
-  );
+  return Promise.race([
+    Promise.resolve().then(() => operation(controller.signal)),
+    timeout,
+  ]).finally(() => clearTimeout(timer));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -130,7 +147,7 @@ export async function withRetry<T>(
 
       const retryAfterMs = getRetryAfterMs(error);
       if (retryAfterMs !== undefined) {
-        await delay(retryAfterMs);
+        await delay(Math.min(retryAfterMs, maxDelayMs));
         continue;
       }
 
@@ -169,6 +186,7 @@ export class CircuitBreaker {
   public async execute<T>(
     operation: () => Promise<T>,
     correlationId?: string,
+    shouldRecordFailure: (error: unknown) => boolean = () => true,
   ): Promise<T> {
     if (this.state === 'OPEN') {
       if (Date.now() - this.openedAt < this.resetTimeoutMs) {
@@ -193,15 +211,20 @@ export class CircuitBreaker {
       }
       return result;
     } catch (error: unknown) {
-      if (isHalfOpenAttempt) {
-        this.state = 'OPEN';
-        this.openedAt = Date.now();
-      } else {
-        this.failureCount += 1;
-        if (this.failureCount >= this.failureThreshold) {
+      if (shouldRecordFailure(error)) {
+        if (isHalfOpenAttempt) {
           this.state = 'OPEN';
           this.openedAt = Date.now();
+        } else {
+          this.failureCount += 1;
+          if (this.failureCount >= this.failureThreshold) {
+            this.state = 'OPEN';
+            this.openedAt = Date.now();
+          }
         }
+      } else if (isHalfOpenAttempt) {
+        this.state = 'CLOSED';
+        this.failureCount = 0;
       }
       throw error;
     } finally {

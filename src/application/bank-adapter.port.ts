@@ -11,6 +11,7 @@ export interface AdapterHealthStatus {
   providerId: string;
   latencyMs: number;
   checkedAt: string;
+  mode?: 'mock' | 'live';
   message?: string;
 }
 

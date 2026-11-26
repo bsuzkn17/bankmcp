@@ -73,7 +73,10 @@ class ProviderResponseError extends Error {
 class UnauthorizedResponseError extends ProviderResponseError {
   public override readonly statusCode = 401;
 
-  public constructor(details: ProviderResponseDetails) {
+  public constructor(
+    details: ProviderResponseDetails,
+    public readonly rejectedToken: string,
+  ) {
     super(details);
     this.name = 'UnauthorizedResponseError';
   }
@@ -240,7 +243,9 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
                   !tokenRefreshed
                 ) {
                   tokenRefreshed = true;
-                  this.#cachedToken = null;
+                  if (this.#cachedToken?.value === error.rejectedToken) {
+                    this.#cachedToken = null;
+                  }
                   return this.performGet<T>(url, correlationId);
                 }
                 throw error;
@@ -249,6 +254,10 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
             { maxRetries: 2 },
           ),
         correlationId,
+        (error) =>
+          error instanceof ProviderTransportError ||
+          (error instanceof ProviderResponseError &&
+            (error.statusCode === 429 || error.statusCode >= 500)),
       );
     } catch (error: unknown) {
       if (error instanceof ProviderResponseError) {
@@ -369,6 +378,7 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
         providerId: this.providerId,
         latencyMs,
         checkedAt: new Date().toISOString(),
+        mode: this.config.enableMockMode ? 'mock' : 'live',
       };
     } catch (error: unknown) {
       const latencyMs = Date.now() - startedAt;
@@ -392,6 +402,7 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
         providerId: this.providerId,
         latencyMs,
         checkedAt: new Date().toISOString(),
+        mode: this.config.enableMockMode ? 'mock' : 'live',
         message: sanitizeText('Bank provider health check failed.'),
       };
     }
@@ -496,9 +507,10 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
     let response: Response;
     try {
       response = await withTimeout(
-        () =>
+        (signal: AbortSignal) =>
           fetch(url, {
             method: 'GET',
+            signal,
             headers: {
               Accept: 'application/json',
               Authorization: `Bearer ${token}`,
@@ -515,6 +527,7 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
     if (response.status === 401) {
       throw new UnauthorizedResponseError(
         await this.getProviderResponseDetails(response, 'bank_api', [token]),
+        token,
       );
     }
     if (!response.ok) {
@@ -584,9 +597,10 @@ export abstract class OAuthBankAdapterBase implements IBankAdapter {
     let response: Response;
     try {
       response = await withTimeout(
-        () =>
+        (signal: AbortSignal) =>
           fetch(this.config.tokenUrl, {
             method: 'POST',
+            signal,
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/x-www-form-urlencoded',

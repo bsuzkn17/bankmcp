@@ -5,7 +5,7 @@ import type {
   Money,
   TransactionFilter,
 } from '../../domain/models.js';
-import { BankAdapterError } from '../../domain/errors.js';
+import { BankAdapterError, ConfigurationError } from '../../domain/errors.js';
 import { BankAdapterRegistry } from '../../application/bank-adapter.factory.js';
 import { Logger } from '../observability/logger.js';
 import { maskIban } from '../security/sanitizer.js';
@@ -179,6 +179,16 @@ export class GarantiBankAdapter extends OAuthBankAdapterBase {
     config: OAuthAdapterConfig,
     logger: Logger = new Logger(),
   ) {
+    if (
+      !config.enableMockMode &&
+      (config.clientId.trim().length === 0 ||
+        config.clientSecret.trim().length === 0)
+    ) {
+      throw new ConfigurationError(
+        undefined,
+        'Bank credentials are required when mock mode is disabled.',
+      );
+    }
     super('garanti', 'Garanti BBVA', config, logger);
   }
 
@@ -290,11 +300,7 @@ export class GarantiBankAdapter extends OAuthBankAdapterBase {
   }
 
   private get useMockMode(): boolean {
-    return (
-      this.config.enableMockMode ||
-      this.config.clientId.trim().length === 0 ||
-      this.config.clientSecret.trim().length === 0
-    );
+    return this.config.enableMockMode;
   }
 
   private normalizeAccount(raw: GarantiRawAccount): BankAccount {

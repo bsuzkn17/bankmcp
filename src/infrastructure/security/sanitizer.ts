@@ -74,6 +74,10 @@ function sanitizeValue(
     return value;
   }
 
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
   if (depth >= maxDepth || seen.has(value)) {
     return REDACTED;
   }
