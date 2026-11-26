@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+node_modules/
+dist/
+coverage/
+repomix-output.*
